@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:raksha/firebase_options.dart';
+import 'package:raksha/homepage.dart';
 
 import 'get_started.dart';
 
@@ -17,7 +18,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: GetStartedPage(),
+      home: Homepage(),
     );
   }
 }

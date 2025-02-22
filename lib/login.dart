@@ -42,7 +42,7 @@ class _LoginSignupModalState extends State<LoginSignupModal> {
         Navigator.pop(context); // Close loading dialog
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const Homepage()),
+          MaterialPageRoute(builder: (context) => Homepage()),
         );
       }
     } on FirebaseAuthException catch (e) {
