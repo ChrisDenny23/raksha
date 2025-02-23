@@ -7,17 +7,18 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:raksha/do_dont.dart';
 import 'package:raksha/news_section.dart';
 import 'emergency_contacts.dart';
 
-class Homepage extends StatefulWidget {
-  const Homepage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
   _HomepageState createState() => _HomepageState();
 }
 
-class _HomepageState extends State<Homepage> {
+class _HomepageState extends State<HomePage> {
   GoogleMapController? mapController;
   LatLng _center = const LatLng(20.5937, 78.9629);
   Set<Marker> _markers = {};
@@ -43,6 +44,7 @@ class _HomepageState extends State<Homepage> {
 
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
       );
 
       if (!mounted) return;
@@ -50,11 +52,39 @@ class _HomepageState extends State<Homepage> {
       setState(() {
         _currentPosition = position;
         _center = LatLng(position.latitude, position.longitude);
+
+        // Update markers with current location
+        _markers.add(
+          Marker(
+            markerId: const MarkerId('currentLocation'),
+            position: LatLng(position.latitude, position.longitude),
+            infoWindow: const InfoWindow(title: 'My Location'),
+            icon:
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          ),
+        );
       });
+
+      // Update camera position to current location
+      if (mapController != null) {
+        await mapController!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: _center,
+              zoom: 15.0,
+            ),
+          ),
+        );
+      }
 
       await fetchDisasterData();
     } catch (e) {
-      print('Error initializing location: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error getting location: $e';
+          print('Location error: $e');
+        });
+      }
     }
   }
 
@@ -118,7 +148,7 @@ class _HomepageState extends State<Homepage> {
           CameraPosition(
             target:
                 LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-            zoom: 16.0,
+            zoom: 15.0,
           ),
         ),
       );
@@ -266,84 +296,6 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
-  // ignore: unused_element
-  Widget _buildNewsSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Latest Updates',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildNewsCard(
-            'Weather Alert',
-            'Heavy rainfall expected in coastal areas',
-            Icons.cloud,
-            DateTime.now(),
-          ),
-          const SizedBox(height: 15),
-          _buildNewsCard(
-            'Safety Update',
-            'New emergency protocols in effect',
-            Icons.security,
-            DateTime.now().subtract(const Duration(hours: 2)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNewsCard(
-      String title, String description, IconData icon, DateTime time) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.blue),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              description,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '${time.hour}:${time.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRiskIndicator() {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -474,7 +426,12 @@ class _HomepageState extends State<Homepage> {
             _buildQuickAccessButton(
               icon: Icons.check_box,
               label: "Do's and Dont's",
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => DisasterScreen()),
+                );
+              },
             ),
             _buildQuickAccessButton(
               icon: Icons.cloud,
@@ -514,17 +471,23 @@ class _HomepageState extends State<Homepage> {
                 onMapCreated: _onMapCreated,
                 initialCameraPosition: CameraPosition(
                   target: _center,
-                  zoom: 5.0,
+                  zoom: 15.0,
                 ),
-                zoomControlsEnabled: false,
+                zoomControlsEnabled: true,
                 markers: _markers,
                 myLocationEnabled: true,
-                myLocationButtonEnabled: false,
+                myLocationButtonEnabled: true,
+                mapToolbarEnabled: true,
               ),
               if (_isLoading)
                 Container(
                   color: Colors.black.withOpacity(0.1),
                   child: const Center(child: CircularProgressIndicator()),
+                ),
+              if (_errorMessage.isNotEmpty)
+                Container(
+                  color: Colors.black.withOpacity(0.1),
+                  child: Center(child: Text(_errorMessage)),
                 ),
             ],
           ),
@@ -604,13 +567,6 @@ class _HomepageState extends State<Homepage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
                 Text(
                   _username.isNotEmpty ? _username : 'User',
                   style: const TextStyle(
